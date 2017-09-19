@@ -1,7 +1,7 @@
 import '../demo-header';
 import '../demo-footer';
 // tslint:disable-next-line:max-line-length
-import {Array3D, gpgpu_util, GPGPUContext, NDArrayMathCPU, NDArrayMathGPU} from '../deeplearn';
+import {Array1D, Array3D, gpgpu_util, GPGPUContext, NDArrayMathCPU, NDArrayMathGPU} from '../deeplearn';
 // import * as imagenet_util from '../models/imagenet_util';
 import {TransformNet} from './net';
 import {PolymerElement, PolymerHTMLElement} from '../polymer-spec';
@@ -153,16 +153,17 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     console.log(switched);
     const switchedValues = switched.getValues();
     console.log(switchedValues);
-    var means = [];
-    var variances = [];
+    const means = [];
+    const variances = [];
+
     for (let i = 0; i < 12; i ++) {
-      var curr = switchedValues.slice(i*9, (i+1)*9);
+      const curr = switchedValues.slice(i*9, (i+1)*9);
 
       var sum = 0;
       for (let j = 0; j < curr.length; j++) {
         sum += curr[j];
       }
-      var avg = sum / curr.length;
+      const avg = sum / curr.length;
       means.push(avg);
 
       var diffSum = 0;
@@ -175,6 +176,21 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
       console.log(means);
       console.log(variances);
     }
+
+    var keepDimMeans: number[] = [];
+    var keepDimVariances: number[] = [];
+    for (let i = 0; i < 9; i ++) {
+      keepDimMeans = keepDimMeans.concat(means);
+      keepDimVariances = keepDimVariances.concat(variances);
+    }
+
+    const meansArray = Array3D.new([3, 3, 12], keepDimMeans);
+    const variancesArray = Array3D.new([3, 3, 12], keepDimVariances);
+
+    console.log(meansArray);
+    console.log(variancesArray);
+
+    console.log(this.mathCPU.multiply(a, Array1D.new([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])));
   }
 }
 

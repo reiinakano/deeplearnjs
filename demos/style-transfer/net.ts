@@ -1,4 +1,4 @@
-import {Array1D, Array3D, Array4D, CheckpointLoader, GPGPUContext, NDArray, NDArrayMathCPU, NDArrayMathGPU} from '../deeplearn';
+import {Scalar, Array1D, Array3D, Array4D, CheckpointLoader, GPGPUContext, NDArray, NDArrayMathCPU, NDArrayMathGPU} from '../deeplearn';
 
 import * as imagenet_util from './imagenet_util';
 
@@ -135,7 +135,7 @@ export class TransformNet {
       this.variables[this.varName(varId)] as Array4D, 
       null, [strides, strides], 'same');
 
-    // y = this.instanceNorm(y, varId);
+    // y = this.instanceNorm(y, varId + 1);
 
     if (relu) {
       y = this.math.relu(y);
@@ -146,18 +146,67 @@ export class TransformNet {
 
   private instanceNorm(input: Array3D, varId: number) {
     const [height, width, inDepth] = input.shape;
-    const varShape = [inDepth];
-
+    const [mu, sigma_sq]: [Array3D, Array3D] = this.instanceMoments(input);
+    const shift = this.variables[this.varName(varId)] as Array1D;
+    const scale = this.variables[this.varName(varId + 1)] as Array1D;
+    const epsilon = Scalar.new(1e-3);
+    const normalized = this.math.divideStrict(this.math.subStrict(input, mu), 
+      this.math.sqrt(this.math.add(sigma_sq, epsilon)));
+    const shifted = this.math.add(this.math.multiply(scale, normalized), shift);
+    return shifted;
   }
 
   /**
    * Copies behavior of tf.nn.moments but purely for instance normalization.
+   * Equivalent to tf.nn.moments(net, [0, 1], keep_dims=True) for a tensor 
+   * of shape ()
    *
    * @param input Array3D shape [height, width, inDepth]
-   * @return mean and variance per channel. both shape [inDepth]
+   * @return mean and variance per channel. Same shape as input.
    */
-  private instanceMoments(input: Array3D) {
+  private instanceMoments(input: Array3D): [Array3D, Array3D] {
+    const [height, width, inDepth] = input.shape;
+    const hWProduct = height * width;
 
+    // Create explicit MathCPU for unimplemented GPU operations
+    const mathCPU = new NDArrayMathCPU;
+
+    // Switch dims for easier slicing. Operation is now on CPU
+    const switched = mathCPU.switchDim(input, [2, 0, 1]);
+    const switchedValues = switched.getValues();
+
+    // Calculate mean and variance per channel
+    const means = [];
+    const variances = [];
+    for (let i = 0; i < inDepth; i ++) {
+      const curr = switchedValues.slice(i*hWProduct, (i+1)*hWProduct);
+
+      var sum = 0;
+      for (let j = 0; j < curr.length; j++) {
+        sum += curr[j];
+      }
+      const avg = sum / curr.length;
+      means.push(avg);
+
+      var diffSum = 0;
+      for (let j = 0; j < curr.length; j++) {
+        diffSum += (avg - curr[j]) * (avg - curr[j]);
+      }
+      variances.push(diffSum / curr.length);
+    }
+
+    // "Broadcast" means and variances back to original shape
+    var keepDimMeans: number[] = [];
+    var keepDimVariances: number[] = [];
+    for (let i = 0; i < hWProduct; i ++) {
+      keepDimMeans = keepDimMeans.concat(means);
+      keepDimVariances = keepDimVariances.concat(variances);
+    }
+
+    const meansArray = Array3D.new(input.shape, keepDimMeans);
+    const variancesArray = Array3D.new(input.shape, keepDimVariances);
+
+    return [meansArray, variancesArray];
   }
 
   private fireModule(input: Array3D, fireId: number) {
