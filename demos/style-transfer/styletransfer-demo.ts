@@ -190,7 +190,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     console.log(meansArray);
     console.log(variancesArray);
 
-    console.log(this.mathCPU.multiply(a, Array1D.new([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])));
+    console.log(this.mathCPU.multiply(Array1D.new([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]), a));
   }
 }
 

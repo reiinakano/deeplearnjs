@@ -63,89 +63,73 @@ export class TransformNet {
    * needs to clean up namedActivations after inferring.
    *
    * @param preprocessedInput preprocessed input Array.
-   * @return Named activations and the pre-softmax logits.
+   * @return Array3D containing pixels of output img
    */
-  infer(preprocessedInput: Array3D):
-      {namedActivations: {[activationName: string]: Array3D}, logits: Array1D} {
-    const namedActivations: {[key: string]: Array3D} = {};
+  infer(preprocessedInput: Array3D): Array3D {
 
-    const avgpool10 = this.math.scope((keep) => {
-      const conv1 = this.math.conv2d(
-          preprocessedInput, this.variables['conv1_W:0'] as Array4D,
-          this.variables['conv1_b:0'] as Array1D, 2, 0);
-      const conv1relu = keep(this.math.relu(conv1));
-      namedActivations['conv_1'] = conv1relu;
+    const img = this.math.scope((keep) => {
+      const conv1 = this.convLayer(preprocessedInput, 1, true, 0);
+      const conv2 = this.convLayer(conv1, 2, true, 3);
+      const conv3 = this.convLayer(conv2, 2, true, 6);
+      const resid1 = this.residualBlock(conv3, 9);
+      const resid2 = this.residualBlock(resid1, 15);
+      const resid3 = this.residualBlock(resid2, 21);
+      const resid4 = this.residualBlock(resid3, 27);
+      const resid5 = this.residualBlock(resid4, 33);
+      const conv_t1 = this.convTransposeLayer(resid5, 64, 2, 39);
+      const conv_t2 = this.convTransposeLayer(conv_t1, 32, 2, 42);
+      const conv_t3 = this.convLayer(conv_t2, 1, false, 45);
+      const out_tanh = this.math.tanh(conv_t3);
+      const scaled = this.math.scalarTimesArray(Scalar.new(150), out_tanh);
+      const shifted = this.math.scalarPlusArray(Scalar.new(255./2), scaled);
 
-      const pool1 = keep(this.math.maxPool(conv1relu, 3, 2, 0));
-      namedActivations['maxpool_1'] = pool1;
-
-      const fire2 = keep(this.fireModule(pool1, 2));
-      namedActivations['fire2'] = fire2;
-
-      const fire3 = keep(this.fireModule(fire2, 3));
-      namedActivations['fire3'] = fire3;
-
-      // Because we don't have uneven padding yet, manually pad the ndarray on
-      // the right.
-      const fire3Reshape2d =
-          fire3.as2D(fire3.shape[0], fire3.shape[1] * fire3.shape[2]);
-      const fire3Sliced2d = this.math.slice2D(
-          fire3Reshape2d, [0, 0],
-          [fire3.shape[0] - 1, (fire3.shape[1] - 1) * fire3.shape[2]]);
-      const fire3Sliced = fire3Sliced2d.as3D(
-          fire3.shape[0] - 1, fire3.shape[1] - 1, fire3.shape[2]);
-      const pool2 = keep(this.math.maxPool(fire3Sliced, 3, 2, 0));
-      namedActivations['maxpool_2'] = pool2;
-
-      const fire4 = keep(this.fireModule(pool2, 4));
-      namedActivations['fire4'] = fire4;
-
-      const fire5 = keep(this.fireModule(fire4, 5));
-      namedActivations['fire5'] = fire5;
-
-      const pool3 = keep(this.math.maxPool(fire5, 3, 2, 0));
-      namedActivations['maxpool_3'] = pool3;
-
-      const fire6 = keep(this.fireModule(pool3, 6));
-      namedActivations['fire6'] = fire6;
-
-      const fire7 = keep(this.fireModule(fire6, 7));
-      namedActivations['fire7'] = fire7;
-
-      const fire8 = keep(this.fireModule(fire7, 8));
-      namedActivations['fire8'] = fire8;
-
-      const fire9 = keep(this.fireModule(fire8, 9));
-      namedActivations['fire9'] = fire9;
-
-      const conv10 = keep(this.math.conv2d(
-          fire9, this.variables['conv10_W:0'] as Array4D,
-          this.variables['conv10_b:0'] as Array1D, 1, 0));
-      namedActivations['conv10'] = conv10;
-
-      return this.math.avgPool(conv10, conv10.shape[0], 1, 0).as1D();
+      return shifted;
     });
 
-    return {namedActivations, logits: avgpool10};
+    return img;
   }
 
   private convLayer(input: Array3D, strides: number, 
-    relu: boolean, varId: number) {
-    var y = this.math.conv2d(input, 
+    relu: boolean, varId: number): Array3D {
+    const y = this.math.conv2d(input, 
       this.variables[this.varName(varId)] as Array4D, 
       null, [strides, strides], 'same');
 
-    // y = this.instanceNorm(y, varId + 1);
+    const y2 = this.instanceNorm(y, varId + 1);
 
     if (relu) {
-      y = this.math.relu(y);
+      return this.math.relu(y2);
     }
 
-    return y;
+    return y2;
   }
 
-  private instanceNorm(input: Array3D, varId: number) {
-    const [height, width, inDepth] = input.shape;
+  private convTransposeLayer(input: Array3D, numFilters: number,
+    strides: number, varId: number): Array3D {
+    const [height, width, inDepth]: [number, number, number] = input.shape;
+    const newRows = height * strides;
+    const newCols = width * strides;
+    const newShape: [number, number, number] = [newRows, newCols, numFilters];
+
+    const y = this.math.conv2dTranspose(input,
+      this.variables[this.varName(varId)] as Array4D,
+      newShape, [strides, strides], 'same');
+
+    const y2 = this.instanceNorm(y, varId + 1);
+
+    const y3 = this.math.relu(y2);
+
+    return y3;
+  }
+
+  private residualBlock(input: Array3D, varId: number): Array3D {
+    const conv1 = this.convLayer(input, 1, true, varId);
+    const conv2 = this.convLayer(conv1, 1, false, varId + 3);
+    return this.math.addStrict(conv2, input); 
+  }
+
+  private instanceNorm(input: Array3D, varId: number): Array3D {
+    const [height, width, inDepth]: [number, number, number] = input.shape;
     const [mu, sigma_sq]: [Array3D, Array3D] = this.instanceMoments(input);
     const shift = this.variables[this.varName(varId)] as Array1D;
     const scale = this.variables[this.varName(varId + 1)] as Array1D;
@@ -153,7 +137,7 @@ export class TransformNet {
     const normalized = this.math.divideStrict(this.math.subStrict(input, mu), 
       this.math.sqrt(this.math.add(sigma_sq, epsilon)));
     const shifted = this.math.add(this.math.multiply(scale, normalized), shift);
-    return shifted;
+    return shifted.as3D(height, width, inDepth);
   }
 
   /**
@@ -207,24 +191,6 @@ export class TransformNet {
     const variancesArray = Array3D.new(input.shape, keepDimVariances);
 
     return [meansArray, variancesArray];
-  }
-
-  private fireModule(input: Array3D, fireId: number) {
-    const y1 = this.math.conv2d(
-        input, this.variables['fire' + fireId + '/squeeze1x1_W:0'] as Array4D,
-        this.variables['fire' + fireId + '/squeeze1x1_b:0'] as Array1D, 1, 0);
-    const y2 = this.math.relu(y1);
-    const left1 = this.math.conv2d(
-        y2, this.variables['fire' + fireId + '/expand1x1_W:0'] as Array4D,
-        this.variables['fire' + fireId + '/expand1x1_b:0'] as Array1D, 1, 0);
-    const left2 = this.math.relu(left1);
-
-    const right1 = this.math.conv2d(
-        y2, this.variables['fire' + fireId + '/expand3x3_W:0'] as Array4D,
-        this.variables['fire' + fireId + '/expand3x3_b:0'] as Array1D, 1, 1);
-    const right2 = this.math.relu(right1);
-
-    return this.math.concat3D(left2, right2, 2);
   }
 
   private varName(varId: number): string {
