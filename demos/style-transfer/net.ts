@@ -67,7 +67,7 @@ export class TransformNet {
    */
   infer(preprocessedInput: Array3D): Array3D {
 
-    const img = this.math.scope((keep) => {
+    const img = this.math.scope((keep, track) => {
       console.log('conv1');
       const conv1 = this.convLayer(preprocessedInput, 1, true, 0);
       console.log('conv2');
@@ -103,12 +103,10 @@ export class TransformNet {
 
   private convLayer(input: Array3D, strides: number, 
     relu: boolean, varId: number): Array3D {
-    console.log('convLayer.conv2d' + varId);
     const y = this.math.conv2d(input, 
       this.variables[this.varName(varId)] as Array4D, 
       null, [strides, strides], 'same');
 
-    console.log('convLayer.instanceNorm' + (varId + 1));
     const y2 = this.instanceNorm(y, varId + 1);
 
     if (relu) {
@@ -143,6 +141,7 @@ export class TransformNet {
   }
 
   private instanceNorm(input: Array3D, varId: number): Array3D {
+    console.log('Starting instance norm' + varId);
     const [height, width, inDepth]: [number, number, number] = input.shape;
     const [mu, sigma_sq]: [Array3D, Array3D] = this.instanceMoments(input);
     const shift = this.variables[this.varName(varId)] as Array1D;
@@ -151,6 +150,7 @@ export class TransformNet {
     const normalized = this.math.divideStrict(this.math.subStrict(input, mu), 
       this.math.sqrt(this.math.add(sigma_sq, epsilon)));
     const shifted = this.math.add(this.math.multiply(scale, normalized), shift);
+    console.log('Finished instance norm')
     return shifted.as3D(height, width, inDepth);
   }
 
@@ -197,14 +197,14 @@ export class TransformNet {
     console.log('instanceMoments: calculated means and variances');
 
     // "Broadcast" means and variances back to original shape
-    var toConcatDimMeans: number[][] = [];
-    var toConcatDimVariances: number[][] = [];
+    const keepDimMeans = new Array(hWProduct*inDepth);
+    const keepDimVariances = new Array(hWProduct*inDepth);
     for (let i = 0; i < hWProduct; i ++) {
-      toConcatDimMeans.push(means);
-      toConcatDimVariances.push(variances);
+      for (let j = 0; j < inDepth; j ++) {
+        keepDimMeans[i*inDepth + j] = means[j];
+        keepDimVariances[i*inDepth + j] = variances[j];
+      }
     }
-    const keepDimMeans = [].concat.apply([], toConcatDimMeans);
-    const keepDimVariances = [].concat.apply([], toConcatDimVariances);
     console.log('instanceMoments: "Broadcasted" to orig shape');
 
     const meansArray = Array3D.new(input.shape, keepDimMeans);

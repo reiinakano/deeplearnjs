@@ -28,7 +28,7 @@ export enum ApplicationState {
   TRAINING = 2
 }
 
-const CONTENT_NAMES = ['stata', 'face'];
+const CONTENT_NAMES = ['stata', 'face', 'face2', 'face3'];
 const STYLE_NAMES = ['udnie', 'scream'];
 
 export class StyleTransferDemo extends StyleTransferDemoPolymer {
@@ -84,9 +84,9 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
 
     // Render DOM for images
     this.contentNames = CONTENT_NAMES;
-    this.selectedContentName = 'stata';
-    this.contentImgElement.src = 'images/stata.jpg';
-    this.contentImgElement.height = 227;
+    this.selectedContentName = 'face';
+    this.contentImgElement.src = 'images/face.jpg';
+    this.contentImgElement.height = 250;
 
     this.styleNames = STYLE_NAMES;
     this.selectedStyleName = 'udnie';
