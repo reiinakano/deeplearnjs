@@ -35,7 +35,6 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
   // DeeplearnJS stuff
   private math: NDArrayMathGPU;
   private mathCPU: NDArrayMathCPU;
-  private gl: WebGLRenderingContext;
   private gpgpu: GPGPUContext;
 
   private transformNet: TransformNet;
@@ -63,10 +62,9 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
 
   ready() {
     // Initialize DeeplearnJS stuff
-    this.math = new NDArrayMathGPU;
+    this.gpgpu = new GPGPUContext;
+    this.math = new NDArrayMathGPU(this.gpgpu);
     this.mathCPU = new NDArrayMathCPU;
-    this.gl = gpgpu_util.createWebGLContext(this.inferenceCanvas);
-    this.gpgpu = new GPGPUContext(this.gl);
 
     // Initialize polymer properties
     this.applicationState = ApplicationState.IDLE;
@@ -127,7 +125,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     // Initialize TransformNet
     this.transformNet = new TransformNet(this.gpgpu, this.math);
 
-    this.myDebug();
+    this.contentImgElement.onload = () => this.myDebug();
   }
 
   myDebug() {
@@ -136,19 +134,10 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
        foo.push(i);
     }
 
-    console.log('debug!');
+    console.log('debug!!');
     const a = Array3D.new([3, 3, 12], foo);
     console.log(a);
     console.log(a.getValues());
-    console.log(a.get(0, 0, 0));
-    console.log(a.get(0, 1, 0));
-    console.log(a.get(0, 2, 0));
-    console.log(a.get(1, 0, 0));
-    console.log(a.get(1, 1, 0));
-    console.log(a.get(1, 2, 0));
-    console.log(a.get(2, 0, 0));
-    console.log(a.get(2, 1, 0));
-    console.log(a.get(2, 2, 0));
     const switched = this.mathCPU.switchDim(a, [2, 0, 1]);
     console.log(switched);
     const switchedValues = switched.getValues();
@@ -172,9 +161,9 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
       }
       variances.push(diffSum / curr.length);
 
-      console.log(curr);
-      console.log(means);
-      console.log(variances);
+      // console.log(curr);
+      // console.log(means);
+      // console.log(variances);
     }
 
     var keepDimMeans: number[] = [];
@@ -190,7 +179,23 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     console.log(meansArray);
     console.log(variancesArray);
 
-    console.log(this.mathCPU.multiply(Array1D.new([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]), a));
+    console.log(this.transformNet);
+    const canvasTextureShape: [number, number] = [this.contentImgElement.height, 
+    this.contentImgElement.width];
+    console.log(canvasTextureShape);
+    
+    this.math.scope((keep, track) => {
+      const canvasTexture =
+          this.math.getTextureManager().acquireTexture(canvasTextureShape);
+      this.gpgpu.uploadPixelDataToTexture(canvasTexture, this.contentImgElement);
+      console.log(canvasTexture);
+      
+      const preprocessed = this.transformNet.preprocessColorTextureToArray3D(
+        canvasTexture, canvasTextureShape);
+      console.log(preprocessed);
+      console.log(preprocessed.getValues());
+    });
+
   }
 }
 
