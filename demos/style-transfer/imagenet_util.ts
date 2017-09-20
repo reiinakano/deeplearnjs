@@ -45,11 +45,11 @@ export function getUnpackAndPreprocessInputShader(
       int channel = int(mod(outputCR[0], 3.0));
 
       if (channel == 0) {
-        channelValue = sourceValue.r - 103.939;
+        channelValue = sourceValue.r - 0.0;
       } else if (channel == 1) {
-        channelValue = sourceValue.g - 116.779;
+        channelValue = sourceValue.g - 0.0;
       } else if (channel == 2) {
-        channelValue = sourceValue.b - 123.68;
+        channelValue = sourceValue.b - 0.0;
       }
 
       gl_FragColor = vec4(channelValue, 0, 0, 0);

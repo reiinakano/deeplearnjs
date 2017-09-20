@@ -42,7 +42,10 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
   // DOM Elements
   private contentImgElement: HTMLImageElement;
   private styleImgElement: HTMLImageElement;
-  private currentImgElement: HTMLImageElement;
+
+  private canvas: HTMLCanvasElement;
+  private canvasContext: CanvasRenderingContext2D;
+  private imageData: ImageData;
 
   private trainButton: HTMLButtonElement;
   private stopButton: HTMLButtonElement;
@@ -78,8 +81,6 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
         this.querySelector('#contentImg') as HTMLImageElement;
     this.styleImgElement = 
         this.querySelector('#styleImg') as HTMLImageElement;
-    this.currentImgElement = 
-        this.querySelector('#currentImg') as HTMLImageElement;
 
     // Render DOM for images
     this.contentNames = CONTENT_NAMES;
@@ -92,8 +93,11 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     this.styleImgElement.src = 'images/udnie.jpg';
     this.styleImgElement.height = 227;
 
-    this.currentImgElement.src = 'images/noise.jpg';
-    this.currentImgElement.height = 227;
+    this.canvas = this.querySelector('#imageCanvas') as HTMLCanvasElement;
+    this.canvas.width = 0;
+    this.canvas.height = 0;
+    this.canvasContext = this.canvas.getContext('2d') as CanvasRenderingContext2D;
+    this.canvas.style.display = 'none';
 
     // Add listener to drop downs
     const contentDropdown = this.querySelector('#content-dropdown');
@@ -123,9 +127,10 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     });
 
     // Initialize TransformNet
-    this.transformNet = new TransformNet(this.gpgpu, this.math);
+    this.transformNet = new TransformNet(this.gpgpu, this.math, 
+      this.selectedStyleName);
+    this.transformNet.loadVariables().then(() => this.myDebug());
 
-    this.contentImgElement.onload = () => this.myDebug();
   }
 
   myDebug() {
@@ -189,13 +194,42 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
           this.math.getTextureManager().acquireTexture(canvasTextureShape);
       this.gpgpu.uploadPixelDataToTexture(canvasTexture, this.contentImgElement);
       console.log(canvasTexture);
-      
+
       const preprocessed = this.transformNet.preprocessColorTextureToArray3D(
         canvasTexture, canvasTextureShape);
-      console.log(preprocessed);
-      console.log(preprocessed.getValues());
+      this.drawOnCanvas(preprocessed);
+
+      const inferenceResult = this.transformNet.infer(preprocessed);
+      this.drawOnCanvas(inferenceResult);
+
     });
 
+  }
+
+  private setCanvasShape(shape: number[]) {
+    this.canvas.width = shape[1];
+    this.canvas.height = shape[0];
+    this.canvas.style.width = shape[1] + 'px';
+    this.canvas.style.height = shape[0] + 'px';
+  }
+
+  private drawOnCanvas(ndarray: Array3D) {
+    this.setCanvasShape(ndarray.shape);
+    this.imageData = this.canvasContext.createImageData(
+        this.canvas.width, this.canvas.height);
+
+    let pixelOffset = 0;
+    for (let i = 0; i < ndarray.shape[0]; i++) {
+      for (let j = 0; j < ndarray.shape[1]; j++) {
+        this.imageData.data[pixelOffset++] = ndarray.get(i, j, 0);
+        this.imageData.data[pixelOffset++] = ndarray.get(i, j, 1);
+        this.imageData.data[pixelOffset++] = ndarray.get(i, j, 2);
+        this.imageData.data[pixelOffset++] = 255;
+      }
+    }
+
+    this.canvas.style.display = '';
+    this.canvasContext.putImageData(this.imageData, 0, 0);
   }
 }
 

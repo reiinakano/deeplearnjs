@@ -4,14 +4,15 @@ import * as imagenet_util from './imagenet_util';
 
 const GOOGLE_CLOUD_STORAGE_DIR =
 //    'https://storage.googleapis.com/learnjs-data/checkpoint_zoo/';
-    'http://localhost:8080/demos/imagenet/';
+    'http://127.0.0.1:8080/demos/style-transfer/ckpts/';
 
 export class TransformNet {
   private variables: {[varName: string]: NDArray};
 
   private preprocessInputShader: WebGLShader;
 
-  constructor(private gpgpu: GPGPUContext, private math: NDArrayMathGPU) {}
+  constructor(private gpgpu: GPGPUContext, 
+    private math: NDArrayMathGPU, private style: string) {}
 
   /**
    * Loads necessary variables for SqueezeNet. Resolves the promise when the
@@ -20,7 +21,7 @@ export class TransformNet {
   loadVariables(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const checkpointLoader =
-          new CheckpointLoader(GOOGLE_CLOUD_STORAGE_DIR + 'squeezenet1_1/');
+          new CheckpointLoader(GOOGLE_CLOUD_STORAGE_DIR + this.style + '/');
       checkpointLoader.getAllVariables().then(variables => {
         this.variables = variables;
         resolve();
@@ -67,17 +68,29 @@ export class TransformNet {
   infer(preprocessedInput: Array3D): Array3D {
 
     const img = this.math.scope((keep) => {
+      console.log('conv1');
       const conv1 = this.convLayer(preprocessedInput, 1, true, 0);
+      console.log('conv2');
       const conv2 = this.convLayer(conv1, 2, true, 3);
+      console.log('conv3');
       const conv3 = this.convLayer(conv2, 2, true, 6);
+      console.log('resid1');
       const resid1 = this.residualBlock(conv3, 9);
+      console.log('resid2');
       const resid2 = this.residualBlock(resid1, 15);
+      console.log('resid3');
       const resid3 = this.residualBlock(resid2, 21);
+      console.log('resid4');
       const resid4 = this.residualBlock(resid3, 27);
+      console.log('resid5');
       const resid5 = this.residualBlock(resid4, 33);
+      console.log('conv_t1');
       const conv_t1 = this.convTransposeLayer(resid5, 64, 2, 39);
+      console.log('conv_t2');
       const conv_t2 = this.convTransposeLayer(conv_t1, 32, 2, 42);
+      console.log('conv_t3');
       const conv_t3 = this.convLayer(conv_t2, 1, false, 45);
+      console.log('out');
       const out_tanh = this.math.tanh(conv_t3);
       const scaled = this.math.scalarTimesArray(Scalar.new(150), out_tanh);
       const shifted = this.math.scalarPlusArray(Scalar.new(255./2), scaled);
@@ -90,10 +103,12 @@ export class TransformNet {
 
   private convLayer(input: Array3D, strides: number, 
     relu: boolean, varId: number): Array3D {
+    console.log('convLayer.conv2d' + varId);
     const y = this.math.conv2d(input, 
       this.variables[this.varName(varId)] as Array4D, 
       null, [strides, strides], 'same');
 
+    console.log('convLayer.instanceNorm' + (varId + 1));
     const y2 = this.instanceNorm(y, varId + 1);
 
     if (relu) {
@@ -155,7 +170,9 @@ export class TransformNet {
     const mathCPU = new NDArrayMathCPU;
 
     // Switch dims for easier slicing. Operation is now on CPU
+    console.log('instanceMoments: switching dims');
     const switched = mathCPU.switchDim(input, [2, 0, 1]);
+    console.log('instanceMoments: switched dims');
     const switchedValues = switched.getValues();
 
     // Calculate mean and variance per channel
@@ -177,14 +194,18 @@ export class TransformNet {
       }
       variances.push(diffSum / curr.length);
     }
+    console.log('instanceMoments: calculated means and variances');
 
     // "Broadcast" means and variances back to original shape
-    var keepDimMeans: number[] = [];
-    var keepDimVariances: number[] = [];
+    var toConcatDimMeans: number[][] = [];
+    var toConcatDimVariances: number[][] = [];
     for (let i = 0; i < hWProduct; i ++) {
-      keepDimMeans = keepDimMeans.concat(means);
-      keepDimVariances = keepDimVariances.concat(variances);
+      toConcatDimMeans.push(means);
+      toConcatDimVariances.push(variances);
     }
+    const keepDimMeans = [].concat.apply([], toConcatDimMeans);
+    const keepDimVariances = [].concat.apply([], toConcatDimVariances);
+    console.log('instanceMoments: "Broadcasted" to orig shape');
 
     const meansArray = Array3D.new(input.shape, keepDimMeans);
     const variancesArray = Array3D.new(input.shape, keepDimVariances);
