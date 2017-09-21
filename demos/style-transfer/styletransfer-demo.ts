@@ -49,6 +49,12 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
 
   private startButton: HTMLButtonElement;
 
+  private camDialog: any;
+  private stream: MediaStream;
+  private webcamVideoElement: HTMLVideoElement;
+  private takePicButton: HTMLButtonElement;
+  private closeModal: HTMLButtonElement;
+
   // Polymer properties
   private contentNames: string[];
   private selectedContentName: string;
@@ -92,11 +98,18 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     this.canvasContext = this.canvas.getContext('2d') as CanvasRenderingContext2D;
     this.canvas.style.display = 'none';
 
+    this.initWebcamVariables();
+
     // Add listener to drop downs
     const contentDropdown = this.querySelector('#content-dropdown');
     // tslint:disable-next-line:no-any
     contentDropdown.addEventListener('iron-activate', (event: any) => {
-      this.contentImgElement.src = 'images/' + event.detail.selected + '.jpg';
+      if (event.detail.selected === 'webcam') {
+        this.openWebcamModal();
+      }
+      else {
+        this.contentImgElement.src = 'images/' + event.detail.selected + '.jpg';
+      }
     });
 
     const styleDropdown = this.querySelector('#style-dropdown');
@@ -121,76 +134,57 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     });
   }
 
-  myDebug() {
-    var foo = [];
-    for (let i = 0; i < 108; i++) {
-       foo.push(i);
+  private initWebcamVariables() {
+    this.camDialog = this.querySelector('#webcam-dialog');
+    this.webcamVideoElement = this.querySelector('#webcamVideo') as HTMLVideoElement;
+    this.takePicButton = this.querySelector('#takePicButton') as HTMLButtonElement;
+    this.closeModal = this.querySelector('#closeModal') as HTMLButtonElement;
+
+    // Check if webcam is even available
+    // tslint:disable-next-line:no-any
+    const navigatorAny = navigator as any;
+    navigator.getUserMedia = navigator.getUserMedia ||
+        navigatorAny.webkitGetUserMedia || navigatorAny.mozGetUserMedia ||
+        navigatorAny.msGetUserMedia;
+    if (navigator.getUserMedia) {
+      const contentNames = CONTENT_NAMES.slice();
+      contentNames.unshift('webcam');
+      this.contentNames = contentNames;
     }
 
-    console.log('debug!!');
-    const a = Array3D.new([3, 3, 12], foo);
-    console.log(a);
-    console.log(a.getValues());
-    const switched = this.mathCPU.switchDim(a, [2, 0, 1]);
-    console.log(switched);
-    const switchedValues = switched.getValues();
-    console.log(switchedValues);
-    const means = [];
-    const variances = [];
-
-    for (let i = 0; i < 12; i ++) {
-      const curr = switchedValues.slice(i*9, (i+1)*9);
-
-      var sum = 0;
-      for (let j = 0; j < curr.length; j++) {
-        sum += curr[j];
-      }
-      const avg = sum / curr.length;
-      means.push(avg);
-
-      var diffSum = 0;
-      for (let j = 0; j < curr.length; j++) {
-        diffSum += (avg - curr[j]) * (avg - curr[j]);
-      }
-      variances.push(diffSum / curr.length);
-
-      // console.log(curr);
-      // console.log(means);
-      // console.log(variances);
-    }
-
-    var keepDimMeans: number[] = [];
-    var keepDimVariances: number[] = [];
-    for (let i = 0; i < 9; i ++) {
-      keepDimMeans = keepDimMeans.concat(means);
-      keepDimVariances = keepDimVariances.concat(variances);
-    }
-
-    const meansArray = Array3D.new([3, 3, 12], keepDimMeans);
-    const variancesArray = Array3D.new([3, 3, 12], keepDimVariances);
-
-    console.log(meansArray);
-    console.log(variancesArray);
-
-    console.log(this.transformNet);
-    const canvasTextureShape: [number, number] = [this.contentImgElement.height, 
-    this.contentImgElement.width];
-    console.log(canvasTextureShape);
-    
-    this.math.scope((keep, track) => {
-      const canvasTexture =
-          this.math.getTextureManager().acquireTexture(canvasTextureShape);
-      this.gpgpu.uploadPixelDataToTexture(canvasTexture, this.contentImgElement);
-      console.log(canvasTexture);
-
-      const preprocessed = this.transformNet.preprocessColorTextureToArray3D(
-        canvasTexture, canvasTextureShape);
-
-      const inferenceResult = this.transformNet.infer(preprocessed);
-      this.drawOnCanvas(inferenceResult);
-
+    this.closeModal.addEventListener('click', () => {
+      this.stream.getTracks()[0].stop();
     });
 
+    this.takePicButton.addEventListener('click', () => {
+      var hiddenCanvas: HTMLCanvasElement = 
+        this.querySelector('#hiddenCanvas') as HTMLCanvasElement;
+      var hiddenContext: CanvasRenderingContext2D = hiddenCanvas.getContext('2d');
+      hiddenCanvas.width = this.webcamVideoElement.width;
+      hiddenCanvas.height = this.webcamVideoElement.height;
+      hiddenContext.drawImage(this.webcamVideoElement, 0, 0, 
+        hiddenCanvas.width, hiddenCanvas.height);
+      var imageDataURL = hiddenCanvas.toDataURL('image/jpg');
+      this.contentImgElement.src = imageDataURL;
+      this.stream.getTracks()[0].stop();
+    });
+  }
+
+  private openWebcamModal() {
+    this.camDialog.open();
+    navigator.getUserMedia(
+      {
+        video: true
+      },
+      (stream) => {
+        this.stream = stream;
+        this.webcamVideoElement.src = window.URL.createObjectURL(stream);
+        this.webcamVideoElement.play();
+      },
+      (err) => {
+        console.error(err);
+      }
+    );
   }
 
   runInference() {

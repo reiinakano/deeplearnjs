@@ -3,6 +3,7 @@
 <link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
 <link rel="import" href="../../bower_components/paper-item/paper-item.html">
 <link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
 
 <dom-module id="styletransfer-demo">
 <style>
@@ -37,7 +38,6 @@
   <div id="inputContainer">
 
     <div id="contentImageContainer">
-      <!--<video autoplay="true" id="webcamVideo" width="227" height="227"></video>-->
       <img id="contentImg"/>
     </div>
 
@@ -74,6 +74,17 @@
     </div>
 
     <div>Status: [[status]]</div>
+
+    <paper-dialog id="webcam-dialog" modal>
+      <h2>Take a photo</h2>
+      <video id="webcamVideo" width="500" height="400"></video>
+      <div class="buttons">
+        <paper-button id='closeModal' dialog-dismiss>Cancel</paper-button>
+        <paper-button id='takePicButton' dialog-confirm autofocus>Take the pic!</paper-button>
+      </div>
+    </paper-dialog>
+
+    <canvas id="hiddenCanvas" style="display: none"></canvas>
 
   </div>
 
