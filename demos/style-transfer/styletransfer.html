@@ -70,14 +70,10 @@
     </div>
 
     <div class="train-button-container">
-      <paper-button class="button" raised id="train">Train</paper-button>
-      <paper-button class="button" hidden$="[[!isTraining(applicationState)]]" raised id="stop">Stop</paper-button>
+      <paper-button class="button" raised id="start">Start</paper-button>
     </div>
 
-    <div>Total steps: [[totalSteps]]</div>
-    <div>Seconds per step: [[secsPerStep]] seconds</div>
-    <div>Content loss: [[contentLoss]]</div>
-    <div>Style loss: [[styleLoss]]</div>
+    <div>Status: [[status]]</div>
 
   </div>
 

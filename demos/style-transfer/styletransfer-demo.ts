@@ -47,8 +47,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
   private canvasContext: CanvasRenderingContext2D;
   private imageData: ImageData;
 
-  private trainButton: HTMLButtonElement;
-  private stopButton: HTMLButtonElement;
+  private startButton: HTMLButtonElement;
 
   // Polymer properties
   private contentNames: string[];
@@ -56,10 +55,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
   private styleNames: string[];
   private selectedStyleName: string;
 
-  private totalSteps: number;
-  private secsPerStep: number;
-  private contentLoss: number;
-  private styleLoss: number;
+  private status: string;
 
   private applicationState: ApplicationState;
 
@@ -71,10 +67,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
 
     // Initialize polymer properties
     this.applicationState = ApplicationState.IDLE;
-    this.totalSteps = 0;
-    this.secsPerStep = 0;
-    this.contentLoss = 0;
-    this.styleLoss = 0;
+    this.status = '';
 
     // Retrieve DOM for images
     this.contentImgElement =
@@ -86,12 +79,12 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     this.contentNames = CONTENT_NAMES;
     this.selectedContentName = 'face';
     this.contentImgElement.src = 'images/face.jpg';
-    this.contentImgElement.height = 250;
+    this.contentImgElement.height = 100;
 
     this.styleNames = STYLE_NAMES;
     this.selectedStyleName = 'udnie';
     this.styleImgElement.src = 'images/udnie.jpg';
-    this.styleImgElement.height = 227;
+    this.styleImgElement.height = 250;
 
     this.canvas = this.querySelector('#imageCanvas') as HTMLCanvasElement;
     this.canvas.width = 0;
@@ -112,25 +105,20 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
       this.styleImgElement.src = 'images/' + event.detail.selected + '.jpg';
     });
 
-    // Add listener to train
-    this.trainButton = this.querySelector('#train') as HTMLButtonElement;
-    this.trainButton.addEventListener('click', () => {
-      // this.createModel();
-      // this.startTraining();
+    // Add listener to start
+    this.startButton = this.querySelector('#start') as HTMLButtonElement;
+    this.startButton.addEventListener('click', () => {
+      this.startButton.textContent = 'Starting style transfer.. Downloading + running model';
+      this.startButton.disabled = true;
+      this.transformNet = new TransformNet(this.gpgpu, this.math,
+        this.selectedStyleName);
+      this.transformNet.loadVariables().then(() => {
+        this.startButton.textContent = 'Processing image';
+        this.runInference();
+        this.startButton.textContent = 'Start';
+        this.startButton.disabled = false;
+      });
     });
-
-    // Add listener to stop
-    this.stopButton = this.querySelector('#stop') as HTMLButtonElement;
-    this.stopButton.addEventListener('click', () => {
-      this.applicationState = ApplicationState.IDLE;
-      // this.graphRunner.stopTraining();
-    });
-
-    // Initialize TransformNet
-    this.transformNet = new TransformNet(this.gpgpu, this.math, 
-      this.selectedStyleName);
-    this.transformNet.loadVariables().then(() => this.myDebug());
-
   }
 
   myDebug() {
@@ -197,13 +185,31 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
 
       const preprocessed = this.transformNet.preprocessColorTextureToArray3D(
         canvasTexture, canvasTextureShape);
-      this.drawOnCanvas(preprocessed);
 
       const inferenceResult = this.transformNet.infer(preprocessed);
       this.drawOnCanvas(inferenceResult);
 
     });
 
+  }
+
+  runInference() {
+    const canvasTextureShape: [number, number] = [this.contentImgElement.height, 
+    this.contentImgElement.width];
+    console.log(canvasTextureShape);
+    
+    this.math.scope((keep, track) => {
+      const canvasTexture =
+          this.math.getTextureManager().acquireTexture(canvasTextureShape);
+      this.gpgpu.uploadPixelDataToTexture(canvasTexture, this.contentImgElement);
+      console.log(canvasTexture);
+
+      const preprocessed = this.transformNet.preprocessColorTextureToArray3D(
+        canvasTexture, canvasTextureShape);
+
+      const inferenceResult = this.transformNet.infer(preprocessed);
+      this.drawOnCanvas(inferenceResult);
+    });
   }
 
   private setCanvasShape(shape: number[]) {
