@@ -144,7 +144,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
       this.transformNet.loadVariables().then(() => {
         this.startButton.textContent = 'Processing image';
         this.runInference();
-        this.startButton.textContent = 'Start';
+        this.startButton.textContent = 'Start Style Transfer';
         this.startButton.disabled = false;
       });
     });
