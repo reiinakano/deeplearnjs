@@ -9,8 +9,6 @@ const GOOGLE_CLOUD_STORAGE_DIR =
 export class TransformNet {
   private variables: {[varName: string]: NDArray};
 
-  private preprocessInputShader: WebGLShader;
-
   constructor(private gpgpu: GPGPUContext, 
     private math: NDArrayMathGPU, private style: string) {}
 
@@ -120,7 +118,7 @@ export class TransformNet {
 
   private convTransposeLayer(input: Array3D, numFilters: number,
     strides: number, varId: number): Array3D {
-    const [height, width, inDepth]: [number, number, number] = input.shape;
+    const [height, width, ]: [number, number, number] = input.shape;
     const newRows = height * strides;
     const newCols = width * strides;
     const newShape: [number, number, number] = [newRows, newCols, numFilters];

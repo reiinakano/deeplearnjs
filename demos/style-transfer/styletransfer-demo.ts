@@ -1,7 +1,7 @@
 import '../demo-header';
 import '../demo-footer';
 // tslint:disable-next-line:max-line-length
-import {Array1D, Array3D, gpgpu_util, GPGPUContext, NDArrayMathCPU, NDArrayMathGPU} from '../deeplearn';
+import {Array3D, GPGPUContext, NDArrayMathCPU, NDArrayMathGPU} from '../deeplearn';
 // import * as imagenet_util from '../models/imagenet_util';
 import {TransformNet} from './net';
 import {PolymerElement, PolymerHTMLElement} from '../polymer-spec';
