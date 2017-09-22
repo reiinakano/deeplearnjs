@@ -137,6 +137,8 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     // Add listener to start
     this.startButton = this.querySelector('#start') as HTMLButtonElement;
     this.startButton.addEventListener('click', () => {
+      (this.querySelector('#load-error-message') as HTMLElement).style.display =
+        'none';
       this.startButton.textContent = 'Starting style transfer.. Downloading + running model';
       this.startButton.disabled = true;
       this.transformNet = new TransformNet(this.gpgpu, this.math,
@@ -152,6 +154,9 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
         console.log(error);
         this.startButton.textContent = 'Start Style Transfer';
         this.startButton.disabled = false;
+        (this.querySelector('#load-error-message') as HTMLElement).textContent = error;
+        (this.querySelector('#load-error-message') as HTMLElement).style.display =
+          'block';
       });
     });
   }
