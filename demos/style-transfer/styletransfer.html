@@ -55,6 +55,8 @@
       </paper-listbox>
     </paper-dropdown-menu>
 
+    <input type="file" id="fileSelect" style="display: none" accept="image/x-png,image/gif,image/jpeg"/>
+
     <paper-dropdown-menu no-animations label="Style">
       <paper-listbox attr-for-selected="value" id="style-dropdown" class="dropdown-content" selected="{{selectedStyleName}}" slot="dropdown-content">
         <template is="dom-repeat" items="[[styleNames]]">

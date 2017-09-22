@@ -28,7 +28,7 @@ export enum ApplicationState {
   TRAINING = 2
 }
 
-const CONTENT_NAMES = ['stata', 'face', 'face2', 'face3'];
+const CONTENT_NAMES = ['stata', 'face', 'face2', 'face3', 'diana', 'Upload from file'];
 const STYLE_NAMES = ['udnie', 'scream'];
 
 export class StyleTransferDemo extends StyleTransferDemoPolymer {
@@ -54,6 +54,8 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
   private webcamVideoElement: HTMLVideoElement;
   private takePicButton: HTMLButtonElement;
   private closeModal: HTMLButtonElement;
+
+  private fileSelect: HTMLButtonElement;
 
   // Polymer properties
   private contentNames: string[];
@@ -85,7 +87,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
     this.contentNames = CONTENT_NAMES;
     this.selectedContentName = 'face';
     this.contentImgElement.src = 'images/face.jpg';
-    this.contentImgElement.height = 100;
+    this.contentImgElement.height = 250;
 
     this.styleNames = STYLE_NAMES;
     this.selectedStyleName = 'udnie';
@@ -100,12 +102,26 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
 
     this.initWebcamVariables();
 
+    this.fileSelect = this.querySelector('#fileSelect') as HTMLButtonElement;
+    this.fileSelect.addEventListener('change', (event: any) => {
+      const f: File = event.target.files[0];
+      const fileReader: FileReader = new FileReader;
+      fileReader.onload = ((e) => {
+        const target: FileReader = e.target as FileReader;
+        this.contentImgElement.src = target.result;
+      });
+      fileReader.readAsDataURL(f);
+    });
+
     // Add listener to drop downs
     const contentDropdown = this.querySelector('#content-dropdown');
     // tslint:disable-next-line:no-any
     contentDropdown.addEventListener('iron-activate', (event: any) => {
-      if (event.detail.selected === 'webcam') {
+      if (event.detail.selected === 'Use webcam') {
         this.openWebcamModal();
+      }
+      else if (event.detail.selected === 'Upload from file') {
+        this.fileSelect.click();
       }
       else {
         this.contentImgElement.src = 'images/' + event.detail.selected + '.jpg';
@@ -148,7 +164,7 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
         navigatorAny.msGetUserMedia;
     if (navigator.getUserMedia) {
       const contentNames = CONTENT_NAMES.slice();
-      contentNames.unshift('webcam');
+      contentNames.unshift('Use webcam');
       this.contentNames = contentNames;
     }
 
