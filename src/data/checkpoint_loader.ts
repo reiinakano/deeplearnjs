@@ -50,12 +50,18 @@ export class CheckpointLoader {
       xhr.open('GET', this.urlPath + MANIFEST_FILE);
 
       xhr.onload = () => {
-        this.checkpointManifest = JSON.parse(xhr.responseText);
-        resolve();
+        if (xhr.status !== 200) {
+          reject (new Error(
+            `${MANIFEST_FILE} not found at ${this.urlPath}. `));
+        }
+        else {
+          this.checkpointManifest = JSON.parse(xhr.responseText);
+          resolve();
+        }
       };
       xhr.onerror = (error) => {
-        throw new Error(
-            `${MANIFEST_FILE} not found at ${this.urlPath}. ` + error);
+        reject (new Error(
+            `${MANIFEST_FILE} not found at ${this.urlPath}. ` + error));
       };
       xhr.send();
     });
@@ -66,7 +72,7 @@ export class CheckpointLoader {
       return new Promise<CheckpointManifest>((resolve, reject) => {
         this.loadManifest().then(() => {
           resolve(this.checkpointManifest);
-        });
+        }).catch((error) => reject(error));
       });
     }
     return new Promise<CheckpointManifest>((resolve, reject) => {
@@ -98,7 +104,7 @@ export class CheckpointLoader {
               }
               resolve(this.variables);
             });
-          });
+          }).catch((error) => reject(error));
     });
   }
 

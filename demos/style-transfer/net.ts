@@ -22,10 +22,12 @@ export class TransformNet {
     return new Promise<void>((resolve, reject) => {
       const checkpointLoader =
           new CheckpointLoader(GOOGLE_CLOUD_STORAGE_DIR + this.style + '/');
-      checkpointLoader.getAllVariables().then(variables => {
+      checkpointLoader.getAllVariables()
+      .then(variables => {
         this.variables = variables;
         resolve();
-      });
+      })
+      .catch((error) => reject(error));
     });
   }
 

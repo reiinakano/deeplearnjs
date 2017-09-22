@@ -29,7 +29,7 @@ export enum ApplicationState {
 }
 
 const CONTENT_NAMES = ['stata', 'face', 'face2', 'face3', 'diana', 'Upload from file'];
-const STYLE_NAMES = ['udnie', 'scream'];
+const STYLE_NAMES = ['udnie', 'scream', 'f'];
 
 export class StyleTransferDemo extends StyleTransferDemoPolymer {
   // DeeplearnJS stuff
@@ -141,9 +141,15 @@ export class StyleTransferDemo extends StyleTransferDemoPolymer {
       this.startButton.disabled = true;
       this.transformNet = new TransformNet(this.gpgpu, this.math,
         this.selectedStyleName);
-      this.transformNet.loadVariables().then(() => {
+      this.transformNet.loadVariables()
+      .then(() => {
         this.startButton.textContent = 'Processing image';
         this.runInference();
+        this.startButton.textContent = 'Start Style Transfer';
+        this.startButton.disabled = false;
+      })
+      .catch((error) => {
+        console.log(error);
         this.startButton.textContent = 'Start Style Transfer';
         this.startButton.disabled = false;
       });
