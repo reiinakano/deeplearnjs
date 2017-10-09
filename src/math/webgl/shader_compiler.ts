@@ -309,6 +309,8 @@ function getSampler1D(texName: string, texShape: [number, number]): string {
   const funcName = 'get' + texName.charAt(0).toUpperCase() + texName.slice(1);
   const tR = texShape[0];
   const tC = texShape[1];
+  const tRInverse = (1 / tR).toFixed(20);
+  const tCInverse = (1 / tC).toFixed(20);
   if (texShape[0] === 1 && texShape[1] === 1) {
     return `
       float ${funcName}(int index) {
@@ -319,7 +321,7 @@ function getSampler1D(texName: string, texShape: [number, number]): string {
   if (texShape[1] === 1) {
     return `
       float ${funcName}(int index) {
-        vec2 uv = vec2(0.5, (float(index) + 0.5) / ${tR}.0);
+        vec2 uv = vec2(0.5, dot(vec2(index, 0.5), vec2(${tRInverse})));
         return sample(${texName}, uv);
       }
     `;
@@ -327,7 +329,7 @@ function getSampler1D(texName: string, texShape: [number, number]): string {
   if (texShape[0] === 1) {
     return `
       float ${funcName}(int index) {
-        vec2 uv = vec2((float(index) + 0.5) / ${tC}.0, 0.5);
+        vec2 uv = vec2(dot(vec2(index, 0.5), vec2(${tCInverse})), 0.5);
         return sample(${texName}, uv);
       }
     `;
